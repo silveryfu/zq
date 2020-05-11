@@ -97,3 +97,70 @@ func CopyWithContext(ctx context.Context, dst WriteFlusher, src Reader) error {
 func Copy(dst WriteFlusher, src Reader) error {
 	return CopyWithContext(context.Background(), dst, src)
 }
+
+func MultiWriter(writers ...Writer) WriteFlusher {
+	w := make([]Writer, len(writers))
+	copy(w, writers)
+	return &multiWriter{w}
+}
+
+type multiWriter struct {
+	writers []Writer
+}
+
+func (m *multiWriter) Write(rec *zng.Record) error {
+	for _, w := range m.writers {
+		if err := w.Write(rec); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (m *multiWriter) Flush() error {
+	// XXX should use multi err instead here
+	var outerr error
+	for _, w := range m.writers {
+		if flusher, ok := w.(WriteFlusher); ok {
+			if err := flusher.Flush(); err != nil {
+				outerr = err
+			}
+		}
+	}
+	return outerr
+}
+
+type multiReader struct {
+	readers []Reader
+}
+
+func (m *multiReader) Read() (rec *zng.Record, err error) {
+	for len(m.readers) > 0 {
+		rec, err = m.readers[0].Read()
+		if rec == nil && err == nil {
+			m.readers = m.readers[1:]
+		} else {
+			return
+		}
+	}
+	return nil, nil
+}
+
+func MultiReader(readers ...Reader) Reader {
+	r := make([]Reader, len(readers))
+	copy(r, readers)
+	return &multiReader{readers: r}
+}
+
+type namedReader struct {
+	Reader
+	name string
+}
+
+func NamedReader(r Reader, name string) Reader {
+	return &namedReader{r, name}
+}
+
+func (n namedReader) String() string {
+	return n.name
+}

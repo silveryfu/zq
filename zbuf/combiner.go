@@ -4,20 +4,28 @@ import (
 	"fmt"
 	"io"
 
+	"github.com/brimsec/zq/expr"
 	"github.com/brimsec/zq/zng"
+)
+
+var (
+	SortTsAscending  = sortTsFn(false)
+	SortTsDescending = sortTsFn(true)
 )
 
 type Combiner struct {
 	readers []Reader
 	hol     []*zng.Record
 	done    []bool
+	sortFn  expr.SortFn
 }
 
-func NewCombiner(readers []Reader) *Combiner {
+func NewCombiner(readers []Reader, sortFn expr.SortFn) *Combiner {
 	return &Combiner{
 		readers: readers,
 		hol:     make([]*zng.Record, len(readers)),
 		done:    make([]bool, len(readers)),
+		sortFn:  sortFn,
 	}
 }
 
@@ -38,7 +46,7 @@ func (c *Combiner) Read() (*zng.Record, error) {
 			}
 			c.hol[k] = tup
 		}
-		if idx == -1 || c.hol[k].Ts < c.hol[idx].Ts {
+		if idx == -1 || c.sortFn(c.hol[k], c.hol[idx]) == -1 {
 			idx = k
 		}
 	}
@@ -70,4 +78,21 @@ func (c *Combiner) Close() error {
 		}
 	}
 	return err
+}
+
+func sortTsFn(desc bool) expr.SortFn {
+	return func(a, b *zng.Record) int {
+		var i int
+		if a.Ts == b.Ts {
+			i = 0
+		} else if a.Ts < b.Ts {
+			i = -1
+		} else {
+			i = 1
+		}
+		if desc {
+			i = i * -1
+		}
+		return i
+	}
 }

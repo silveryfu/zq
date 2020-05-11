@@ -11,18 +11,12 @@ import (
 	"sync/atomic"
 	"time"
 
-	"github.com/brimsec/zq/driver"
 	"github.com/brimsec/zq/pcap"
 	"github.com/brimsec/zq/pkg/nano"
-	"github.com/brimsec/zq/zbuf"
-	"github.com/brimsec/zq/zio"
 	"github.com/brimsec/zq/zio/detector"
-	"github.com/brimsec/zq/zio/zngio"
 	"github.com/brimsec/zq/zng/resolver"
 	"github.com/brimsec/zq/zqd/space"
 	"github.com/brimsec/zq/zqd/zeek"
-	"github.com/brimsec/zq/zql"
-	"go.uber.org/zap"
 )
 
 var (
@@ -100,9 +94,9 @@ func (p *Process) run(ctx context.Context) error {
 	abort := func() {
 		os.RemoveAll(p.logdir)
 		os.Remove(p.space.DataPath(space.PcapIndexFile))
-		os.Remove(p.space.DataPath(space.AllZngFile))
 		p.space.SetPcapPath("")
 		p.space.UnsetSpan()
+		// p.space.Storage().Delete()
 	}
 
 	ticker := time.NewTicker(time.Second)
@@ -231,39 +225,11 @@ func (p *Process) createSnapshot(ctx context.Context) error {
 		return err
 	}
 	defer zr.Close()
-	// For the time being, this endpoint will overwrite any underlying data.
-	// In order to get rid errors on any concurrent searches on this space,
-	// write zng to a temp file and rename on successful conversion.
-	zngfile, err := p.space.CreateFile(allZngTmpFile)
-	if err != nil {
-		return err
-	}
-	zw := zngio.NewWriter(zngfile, zio.WriterFlags{StreamRecordsMax: p.space.StreamSize()})
-	if err := p.ingestLogs(ctx, zw, zr, "sort -r ts"); err != nil {
-		// If an error occurs here close and remove tmp zngfile, lest we start
-		// leaking files and file descriptors.
-		zngfile.Close()
-		os.Remove(zngfile.Name())
-		return err
-	}
-	if err := zngfile.Close(); err != nil {
+	if err := p.space.Storage.WriteTo(ctx, zr); err != nil {
 		return err
 	}
 	atomic.AddInt32(&p.snapshots, 1)
-	return os.Rename(zngfile.Name(), p.space.DataPath(space.AllZngFile))
-}
-
-func (p *Process) ingestLogs(ctx context.Context, w zbuf.Writer, r zbuf.Reader, prog string) error {
-	proc, err := zql.ParseProc(prog)
-	if err != nil {
-		return err
-	}
-	mux, err := driver.Compile(ctx, proc, r, false, nano.MaxSpan, zap.NewNop())
-	if err != nil {
-		return err
-	}
-	d := &simpledriver{w}
-	return driver.Run(mux, d, nil)
+	return nil
 }
 
 func (p *Process) Write(b []byte) (int, error) {

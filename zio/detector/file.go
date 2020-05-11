@@ -134,7 +134,14 @@ func OpenFiles(zctx *resolver.Context, paths ...string) (*zbuf.Combiner, error) 
 		}
 		readers = append(readers, reader)
 	}
-	return zbuf.NewCombiner(readers), nil
+	return zbuf.NewCombiner(readers, zbuf.SortTsAscending), nil
+}
+
+func ConfigureNDJSONReader(jr *ndjsonio.Reader, cfg OpenConfig, filename string) error {
+	if cfg.JSONTypeConfig == nil {
+		return nil
+	}
+	return jsonConfig(cfg, jr, filename)
 }
 
 func jsonConfig(cfg OpenConfig, jr *ndjsonio.Reader, filename string) error {

@@ -15,6 +15,7 @@ import (
 )
 
 func NewReader(r io.Reader, zctx *resolver.Context) (zbuf.Reader, error) {
+	r = GzipReader(r)
 	recorder := NewRecorder(r)
 	track := NewTrack(recorder)
 

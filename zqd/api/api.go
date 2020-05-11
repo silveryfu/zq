@@ -115,7 +115,6 @@ type PcapPostStatus struct {
 
 type LogPostRequest struct {
 	Paths          []string             `json:"paths"`
-	StopErr        bool                 `json:"stop_err"`
 	JSONTypeConfig *ndjsonio.TypeConfig `json:"json_type_config"`
 }
 

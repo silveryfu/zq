@@ -1,13 +1,13 @@
-package ingest
+package ingest_test
 
 import (
 	"context"
 	"io/ioutil"
-	"net/http/httptest"
 	"os"
 	"testing"
 
 	"github.com/brimsec/zq/zqd/api"
+	"github.com/brimsec/zq/zqd/ingest"
 	"github.com/brimsec/zq/zqd/space"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -44,27 +44,28 @@ func TestLogsErrInFlight(t *testing.T) {
 
 	spaces := space.NewManager(root, nil)
 	s := createTempSpace(t, spaces)
+	ctx := context.Background()
 
 	f := writeTempFile(t, src)
 
 	errCh1 := make(chan error)
 	errCh2 := make(chan error)
 	go func() {
-		p := api.NewJSONPipe(httptest.NewRecorder())
-		errCh1 <- Logs(context.Background(), p, s, api.LogPostRequest{Paths: []string{f}})
+		_, err := ingest.NewLogTransaction(ctx, s.Storage, api.LogPostRequest{Paths: []string{f}})
+		errCh1 <- err
 	}()
 	go func() {
-		p := api.NewJSONPipe(httptest.NewRecorder())
-		errCh2 <- Logs(context.Background(), p, s, api.LogPostRequest{Paths: []string{f}})
+		_, err := ingest.NewLogTransaction(ctx, s.Storage, api.LogPostRequest{Paths: []string{f}})
+		errCh2 <- err
 	}()
 	err1 := <-errCh1
 	err2 := <-errCh2
 	if err1 == nil {
-		assert.EqualError(t, err2, ErrIngestProcessInFlight.Error())
+		assert.EqualError(t, err2, ingest.ErrIngestProcessInFlight.Error())
 		return
 	}
 	if err2 == nil {
-		assert.EqualError(t, err1, ErrIngestProcessInFlight.Error())
+		assert.EqualError(t, err1, ingest.ErrIngestProcessInFlight.Error())
 		return
 	}
 	assert.Fail(t, "expected only one error")

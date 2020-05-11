@@ -348,13 +348,35 @@ func handleLogPost(c *Core, w http.ResponseWriter, r *http.Request) {
 		respondError(c, w, r, zqe.E(zqe.Invalid, "empty paths"))
 		return
 	}
+	transaction, err := ingest.NewLogTransaction(ctx, s.Storage, req)
+	if err != nil {
+		respondError(c, w, r, err)
+		return
+	}
 	w.Header().Set("Content-Type", "application/ndjson")
 	w.WriteHeader(http.StatusAccepted)
 
 	pipe := api.NewJSONPipe(w)
-	err = ingest.Logs(ctx, pipe, s, req)
-	if err != nil {
-		c.requestLogger(r).Warn("Error during log ingest", zap.Error(err))
+	pipe.SendStart(0)
+	ticker := time.NewTicker(time.Second)
+	defer ticker.Stop()
+	for {
+		select {
+		case warning := <-transaction.Warning():
+			pipe.Send(api.LogPostWarning{
+				Type:    "LogPostWarning",
+				Warning: warning,
+			})
+		case <-transaction.Done():
+			// send final status
+			status := transaction.Status()
+			pipe.Send(status)
+			pipe.SendEnd(0, transaction.Error())
+			return
+		case <-ticker.C:
+			status := transaction.Status()
+			pipe.Send(status)
+		}
 	}
 }
 

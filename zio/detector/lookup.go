@@ -67,6 +67,8 @@ func LookupReader(r io.Reader, zctx *resolver.Context, format string) (zbuf.Read
 		return zjsonio.NewReader(r, zctx), nil
 	case "zng":
 		return zngio.NewReader(r, zctx), nil
+	case "auto", "":
+		return NewReader(r, zctx)
 	}
 	return nil, fmt.Errorf("no such reader type: \"%s\"", format)
 }

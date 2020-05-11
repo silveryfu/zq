@@ -103,7 +103,7 @@ func TestS3MinioPoc(t *testing.T) {
 		require.NoError(t, err)
 		defer f2.Close()
 
-		c := zbuf.NewCombiner([]zbuf.Reader{f1, f2})
+		c := zbuf.NewCombiner([]zbuf.Reader{f1, f2}, zbuf.SortTsAscending)
 
 		w := tzngio.NewWriter(&out)
 		err = zbuf.Copy(zbuf.NopFlusher(w), c)

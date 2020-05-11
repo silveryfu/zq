@@ -8,25 +8,21 @@ import (
 	"io/ioutil"
 	"os"
 	"path/filepath"
-	"strings"
 	"sync"
+	"sync/atomic"
 
 	"github.com/brimsec/zq/pcap"
 	"github.com/brimsec/zq/pcap/pcapio"
 	"github.com/brimsec/zq/pkg/nano"
-	"github.com/brimsec/zq/zbuf"
-	"github.com/brimsec/zq/zio/zngio"
-	"github.com/brimsec/zq/zng/resolver"
 	"github.com/brimsec/zq/zqd/api"
+	"github.com/brimsec/zq/zqd/storage"
 	"github.com/brimsec/zq/zqe"
 	"github.com/segmentio/ksuid"
 )
 
 const (
-	AllZngFile = "all.zng"
-	configFile = "config.json"
-	infoFile   = "info.json"
-	// XXX This should be named pcaps.idx.json. Once we have a system for migrations this should be done.
+	configFile        = "config.json"
+	infoFile          = "info.json"
 	PcapIndexFile     = "packets.idx.json"
 	defaultStreamSize = 5000
 )
@@ -43,26 +39,25 @@ func newSpaceID() api.SpaceID {
 }
 
 type Space struct {
+	Storage *storage.ZngStorage
+
 	path string
 	conf config
-
-	index *zngio.TimeIndex
+	mu   sync.RWMutex
 
 	// state about operations in progress
-	opMutex       sync.Mutex
-	active        int
-	deletePending bool
+	deletePending uint32
+	wg            sync.WaitGroup
 
-	wg sync.WaitGroup
 	// closed to signal non-delete ops should terminate
 	cancelChan chan struct{}
 }
 
 func newSpace(path string, conf config) *Space {
 	return &Space{
+		Storage:    storage.NewZng(path),
 		path:       path,
 		conf:       conf,
-		index:      zngio.NewTimeIndex(),
 		cancelChan: make(chan struct{}, 0),
 	}
 }
@@ -72,10 +67,7 @@ func newSpace(path string, conf config) *Space {
 // Otherwise, this returns a new context, and a done function that must
 // be called when the operation completes.
 func (s *Space) StartSpaceOp(ctx context.Context) (context.Context, context.CancelFunc, error) {
-	s.opMutex.Lock()
-	defer s.opMutex.Unlock()
-
-	if s.deletePending {
+	if atomic.LoadUint32(&s.deletePending) == 1 {
 		return ctx, func() {}, zqe.E(zqe.Conflict, "space is pending deletion")
 	}
 
@@ -91,9 +83,6 @@ func (s *Space) StartSpaceOp(ctx context.Context) (context.Context, context.Canc
 	}()
 
 	done := func() {
-		s.opMutex.Lock()
-		defer s.opMutex.Unlock()
-
 		s.wg.Done()
 		cancel()
 	}
@@ -115,7 +104,7 @@ func (s *Space) Update(req api.SpacePutRequest) error {
 }
 
 func (s *Space) Info() (api.SpaceInfo, error) {
-	logsize, err := s.LogSize()
+	logsize, err := s.Storage.Size()
 	if err != nil {
 		return api.SpaceInfo{}, err
 	}
@@ -123,10 +112,16 @@ func (s *Space) Info() (api.SpaceInfo, error) {
 	if err != nil {
 		return api.SpaceInfo{}, err
 	}
+	var span *nano.Span
+	sp := s.Storage.Span()
+	if sp.Dur > 0 {
+		span = &sp
+	}
 	spaceInfo := api.SpaceInfo{
 		ID:          s.ID(),
 		Name:        s.conf.Name,
 		Size:        logsize,
+		Span:        span,
 		DataPath:    s.conf.DataPath,
 		PcapSupport: s.PcapPath() != "",
 		PcapPath:    s.PcapPath(),
@@ -199,9 +194,9 @@ func (c *SearchReadCloser) Close() error {
 }
 
 // LogSize returns the size in bytes of the logs in space.
-func (s *Space) LogSize() (int64, error) {
-	return sizeof(s.DataPath(AllZngFile))
-}
+// func (s *Space) LogSize() (int64, error) {
+// return sizeof(s.DataPath(AllZngFile))
+// }
 
 // PcapSize returns the size in bytes of the packet capture in the space.
 func (s *Space) PcapSize() (int64, error) {
@@ -223,28 +218,8 @@ func (s *Space) DataPath(elem ...string) string {
 	return filepath.Join(append([]string{s.conf.DataPath}, elem...)...)
 }
 
-func (s *Space) OpenZng(span nano.Span) (zbuf.ReadCloser, error) {
-	zctx := resolver.NewContext()
+func (s *Space) Search(ctx context.Context, req api.SearchRequest) {
 
-	f, err := os.Open(s.DataPath(AllZngFile))
-	if err != nil {
-		if !os.IsNotExist(err) {
-			return nil, err
-		}
-
-		// Couldn't read all.zng, check for an old space with all.bzng
-		bzngFile := strings.TrimSuffix(AllZngFile, filepath.Ext(AllZngFile)) + ".bzng"
-		f, err = os.Open(s.DataPath(bzngFile))
-		if err != nil {
-			if !os.IsNotExist(err) {
-				return nil, err
-			}
-			r := zngio.NewReader(strings.NewReader(""), zctx)
-			return zbuf.NopReadCloser(r), nil
-		}
-	}
-
-	return s.index.NewReader(f, zctx, span)
 }
 
 func (s *Space) CreateFile(file string) (*os.File, error) {
@@ -276,17 +251,12 @@ func (s *Space) StreamSize() int {
 // different then the space's path).
 // Don't call this directly, used Manager.Delete()
 func (s *Space) delete() error {
-	s.opMutex.Lock()
-
-	if s.deletePending {
-		s.opMutex.Unlock()
+	if !atomic.CompareAndSwapUint32(&s.deletePending, 0, 1) {
 		return zqe.E(zqe.Conflict, "space is pending deletion")
 	}
 
-	s.deletePending = true
-	s.opMutex.Unlock()
-
 	close(s.cancelChan)
+	s.mu.Lock()
 	s.wg.Wait()
 
 	if err := os.RemoveAll(s.path); err != nil {

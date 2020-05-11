@@ -42,7 +42,7 @@ func TestSearch(t *testing.T) {
 	defer done()
 	sp, err := client.SpacePost(context.Background(), api.SpacePostRequest{Name: "test"})
 	require.NoError(t, err)
-	_ = postSpaceLogs(t, client, sp.ID, nil, false, src)
+	_ = postSpaceLogs(t, client, sp.ID, nil, src)
 	res := searchTzng(t, client, sp.ID, "*")
 	require.Equal(t, test.Trim(src), res)
 }
@@ -57,7 +57,7 @@ func TestSearchStats(t *testing.T) {
 	defer done()
 	sp, err := client.SpacePost(context.Background(), api.SpacePostRequest{Name: "test"})
 	require.NoError(t, err)
-	_ = postSpaceLogs(t, client, sp.ID, nil, false, src)
+	_ = postSpaceLogs(t, client, sp.ID, nil, src)
 	_, msgs := search(t, client, sp.ID, "_path != b")
 	var stats *api.SearchStats
 	for i := len(msgs) - 1; i >= 0; i-- {
@@ -92,7 +92,7 @@ func TestGroupByReverse(t *testing.T) {
 	defer done()
 	sp, err := client.SpacePost(context.Background(), api.SpacePostRequest{Name: "test"})
 	require.NoError(t, err)
-	_ = postSpaceLogs(t, client, sp.ID, nil, false, src)
+	_ = postSpaceLogs(t, client, sp.ID, nil, src)
 	res := searchTzng(t, client, sp.ID, "every 1s count()")
 	require.Equal(t, test.Trim(counts), res)
 }
@@ -117,7 +117,7 @@ func TestSearchError(t *testing.T) {
 	defer done()
 	sp, err := client.SpacePost(context.Background(), api.SpacePostRequest{Name: "test"})
 	require.NoError(t, err)
-	_ = postSpaceLogs(t, client, sp.ID, nil, false, src)
+	_ = postSpaceLogs(t, client, sp.ID, nil, src)
 
 	parsed, err := zql.ParseProc("*")
 	require.NoError(t, err)
@@ -200,14 +200,14 @@ func TestSpaceInfo(t *testing.T) {
 	defer done()
 	sp, err := client.SpacePost(ctx, api.SpacePostRequest{Name: "test"})
 	require.NoError(t, err)
-	_ = postSpaceLogs(t, client, sp.ID, nil, false, src)
+	_ = postSpaceLogs(t, client, sp.ID, nil, src)
 	span := nano.Span{Ts: 1e9, Dur: 1e9 + 1}
 	expected := &api.SpaceInfo{
 		ID:          sp.ID,
 		Name:        sp.Name,
 		DataPath:    sp.DataPath,
 		Span:        &span,
-		Size:        80,
+		Size:        81,
 		PcapSupport: false,
 	}
 	info, err := client.SpaceInfo(ctx, sp.ID)
@@ -349,7 +349,7 @@ func TestPostZngLogs(t *testing.T) {
 	sp, err := client.SpacePost(context.Background(), api.SpacePostRequest{Name: "test"})
 	require.NoError(t, err)
 
-	payloads := postSpaceLogs(t, client, sp.ID, nil, false, strings.Join(src1, "\n"), strings.Join(src2, "\n"))
+	payloads := postSpaceLogs(t, client, sp.ID, nil, strings.Join(src1, "\n"), strings.Join(src2, "\n"))
 	status := payloads[len(payloads)-2].(*api.LogPostStatus)
 	span := &nano.Span{Ts: 1e9, Dur: 1e9 + 1}
 	require.Equal(t, &api.LogPostStatus{
@@ -372,7 +372,7 @@ func TestPostZngLogs(t *testing.T) {
 		Name:        sp.Name,
 		DataPath:    sp.DataPath,
 		Span:        span,
-		Size:        80,
+		Size:        81,
 		PcapSupport: false,
 	}, info)
 }
@@ -391,7 +391,7 @@ func TestPostZngLogWarning(t *testing.T) {
 	sp, err := client.SpacePost(context.Background(), api.SpacePostRequest{Name: "test"})
 	require.NoError(t, err)
 
-	payloads := postSpaceLogs(t, client, sp.ID, nil, false, strings.Join(src1, "\n"), strings.Join(src2, "\n"))
+	payloads := postSpaceLogs(t, client, sp.ID, nil, strings.Join(src1, "\n"), strings.Join(src2, "\n"))
 	warn1 := payloads[1].(*api.LogPostWarning)
 	warn2 := payloads[2].(*api.LogPostWarning)
 	assert.Regexp(t, ": format detection error.*", warn1.Warning)
@@ -443,7 +443,7 @@ func TestPostNDJSONLogs(t *testing.T) {
 		sp, err := client.SpacePost(context.Background(), api.SpacePostRequest{Name: "test"})
 		require.NoError(t, err)
 
-		payloads := postSpaceLogs(t, client, sp.ID, &tc, false, input)
+		payloads := postSpaceLogs(t, client, sp.ID, &tc, input)
 		last := payloads[len(payloads)-1].(*api.TaskEnd)
 		assert.Equal(t, last.Type, "TaskEnd")
 		assert.Nil(t, last.Error)
@@ -459,7 +459,7 @@ func TestPostNDJSONLogs(t *testing.T) {
 			Name:        sp.Name,
 			DataPath:    sp.DataPath,
 			Span:        &span,
-			Size:        80,
+			Size:        81,
 			PcapSupport: false,
 		}, info)
 	}
@@ -503,7 +503,7 @@ func TestPostNDJSONLogWarning(t *testing.T) {
 	sp, err := client.SpacePost(context.Background(), api.SpacePostRequest{Name: "test"})
 	require.NoError(t, err)
 
-	payloads := postSpaceLogs(t, client, sp.ID, &tc, false, src1, src2)
+	payloads := postSpaceLogs(t, client, sp.ID, &tc, src1, src2)
 	warn1 := payloads[1].(*api.LogPostWarning)
 	warn2 := payloads[2].(*api.LogPostWarning)
 	assert.Regexp(t, ": line 1: descriptor not found$", warn1.Warning)
@@ -522,22 +522,22 @@ func TestPostNDJSONLogWarning(t *testing.T) {
 	assert.Nil(t, taskend.Error)
 }
 
-func TestPostLogStopErr(t *testing.T) {
-	src := `
-#0:record[_path:string,ts:time,uid:bstring
-0:[conn;1;CBrzd94qfowOqJwCHa;]`
-	_, client, done := newCore(t)
-	defer done()
+// func TestPostLogStopErr(t *testing.T) {
+// src := `
+// #0:record[_path:string,ts:time,uid:bstring
+// 0:[conn;1;CBrzd94qfowOqJwCHa;]`
+// _, client, done := newCore(t)
+// defer done()
 
-	sp, err := client.SpacePost(context.Background(), api.SpacePostRequest{Name: "test"})
-	require.NoError(t, err)
+// sp, err := client.SpacePost(context.Background(), api.SpacePostRequest{Name: "test"})
+// require.NoError(t, err)
 
-	payloads := postSpaceLogs(t, client, sp.ID, nil, true, src)
-	last := payloads[len(payloads)-1].(*api.TaskEnd)
-	assert.Equal(t, last.Type, "TaskEnd")
-	require.NotNil(t, last.Error)
-	assert.Regexp(t, ": format detection error.*", last.Error.Message)
-}
+// payloads := postSpaceLogs(t, client, sp.ID, nil, src)
+// last := payloads[len(payloads)-1].(*api.TaskEnd)
+// assert.Equal(t, last.Type, "TaskEnd")
+// require.NotNil(t, last.Error)
+// assert.Regexp(t, ": format detection error.*", last.Error.Message)
+// }
 
 func TestDeleteDuringPcapPost(t *testing.T) {
 	c, client, done := newCore(t)
@@ -666,7 +666,7 @@ func writeTempFile(t *testing.T, contents string) string {
 }
 
 // postSpaceLogs POSTs the provided strings as logs in to the provided space, and returns a slice of any payloads that the server sent.
-func postSpaceLogs(t *testing.T, c *api.Connection, spaceID api.SpaceID, tc *ndjsonio.TypeConfig, stoperr bool, logs ...string) []interface{} {
+func postSpaceLogs(t *testing.T, c *api.Connection, spaceID api.SpaceID, tc *ndjsonio.TypeConfig, logs ...string) []interface{} {
 	var filenames []string
 	for _, log := range logs {
 		name := writeTempFile(t, log)
@@ -675,7 +675,7 @@ func postSpaceLogs(t *testing.T, c *api.Connection, spaceID api.SpaceID, tc *ndj
 	}
 
 	ctx := context.Background()
-	s, err := c.LogPost(ctx, spaceID, api.LogPostRequest{Paths: filenames, JSONTypeConfig: tc, StopErr: stoperr})
+	s, err := c.LogPost(ctx, spaceID, api.LogPostRequest{Paths: filenames, JSONTypeConfig: tc})
 	require.NoError(t, err)
 	var payloads []interface{}
 	for {

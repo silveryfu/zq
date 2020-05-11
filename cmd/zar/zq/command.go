@@ -167,7 +167,7 @@ func (c *Command) Run(args []string) error {
 				readers[i] = zbuf.NewWarningReader(r, wch)
 			}
 		}
-		reader := zbuf.NewCombiner(readers)
+		reader := zbuf.NewCombiner(readers, zbuf.SortTsAscending)
 		defer reader.Close()
 		writer, err := c.openOutput(zardir, c.outputFile)
 		if err != nil {
