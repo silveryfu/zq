@@ -9,10 +9,11 @@ import (
 )
 
 const (
-	MagicName      = "magic"
-	VersionName    = "version"
-	ChildFieldName = "child_field"
-	KeysName       = "keys"
+	MagicName       = "magic"
+	VersionName     = "version"
+	ChildFieldName  = "child_field"
+	IndexOffsetName = "index_offset"
+	KeysName        = "keys"
 
 	MagicVal      = "zdx"
 	VersionVal    = "0.2"
@@ -46,10 +47,8 @@ func newHeader(zctx *resolver.Context, keys *zng.Record) (*zng.Record, error) {
 		{MagicName, zng.TypeString},
 		{VersionName, zng.TypeString},
 		{ChildFieldName, zng.TypeString},
+		{IndexOffsetName, zng.TypeString},
 		{KeysName, keys.Type},
-		// XXX when we collapse bundle to single file we will need
-		// a pointer to the btree section... coming soon
-		//{"btree_offset or base_length", zng.String},
 	}
 	typ, err := zctx.LookupTypeRecord(cols)
 	if err != nil {
@@ -61,10 +60,15 @@ func newHeader(zctx *resolver.Context, keys *zng.Record) (*zng.Record, error) {
 	for k := 0; keys.HasField(childField); k++ {
 		childField = fmt.Sprintf("%s_%d", ChildFieldVal, k)
 	}
-	// We call Parse here with just the Magic and Version and leave the
-	// key field empty so the parser will create records with unset values.
+	// Write the index offset as a fixed-length, 16-character xhex string,
+	// so the entire header can be over-written on close when we know
+	// the actual value of the index offset without perturbing the rest
+	// of the file and keeping the size of the base layer the same.
+	index_offset := fmt.Sprintf("%016x", 0)
+	// We call Parse here and leave the key field empty so the builder
+	// will insert unset values for all of the keys.
 	builder := zng.NewBuilder(typ)
-	rec, err := builder.Parse(MagicVal, VersionVal, childField)
+	rec, err := builder.Parse(MagicVal, VersionVal, childField, index_offset)
 	if err != nil && err != zng.ErrIncomplete {
 		return nil, err
 	}
