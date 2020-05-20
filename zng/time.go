@@ -1,6 +1,8 @@
 package zng
 
 import (
+	"fmt"
+
 	"github.com/brimsec/zq/pkg/nano"
 	"github.com/brimsec/zq/zcode"
 )
@@ -25,10 +27,12 @@ func DecodeTime(zv zcode.Bytes) (nano.Ts, error) {
 }
 
 func (t *TypeOfTime) Parse(in []byte) (zcode.Bytes, error) {
+	fmt.Println("NANO-PARSE", string(in))
 	ts, err := nano.Parse(in)
 	if err != nil {
 		return nil, err
 	}
+	fmt.Println("NANO-PARSE-2", int64(ts))
 	return EncodeTime(ts), nil
 }
 

@@ -51,7 +51,7 @@ func runTest(filt string, record *zng.Record, expectedResult bool) error {
 
 	// Failure!  Try to assemble a useful error message.
 	// Just use the zval pretty format of Raw.
-	raw := record.Raw.String()
+	raw := record.String()
 	if expectedResult {
 		return fmt.Errorf("Filter \"%s\" should have matched \"%s\"", filt, raw)
 	} else {

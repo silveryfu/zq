@@ -279,6 +279,9 @@ func compare(lhs, rhs zngnative.Value) (bool, error) {
 			// Simple comparison of two signed values
 			return lv == rhs.Value.(int64), nil
 		case zng.IdFloat64:
+			if lhs.Type.ID() == zng.IdTime {
+				return nano.Ts(lv) == nano.FloatToTs(rhs.Value.(float64)), nil
+			}
 			rv, ok := floatToInt64(rhs.Value.(float64))
 			if ok {
 				return lv == int64(rv), nil

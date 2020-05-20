@@ -10,6 +10,7 @@ import (
 
 	"github.com/brimsec/zq/ast"
 	"github.com/brimsec/zq/pkg/byteconv"
+	"github.com/brimsec/zq/pkg/nano"
 	"github.com/brimsec/zq/reglob"
 	"github.com/brimsec/zq/zng"
 )
@@ -95,6 +96,16 @@ var compareFloat = map[string]func(float64, float64) bool{
 	">=": func(a, b float64) bool { return a >= b },
 	"<":  func(a, b float64) bool { return a < b },
 	"<=": func(a, b float64) bool { return a <= b }}
+
+var compareTs = map[string]func(nano.Ts, nano.Ts) bool{
+	"=":  func(a, b nano.Ts) bool { return a == b },
+	"!=": func(a, b nano.Ts) bool { return a != b },
+	"=~": func(a, b nano.Ts) bool { return false },
+	"!~": func(a, b nano.Ts) bool { return false },
+	">":  func(a, b nano.Ts) bool { return a > b },
+	">=": func(a, b nano.Ts) bool { return a >= b },
+	"<":  func(a, b nano.Ts) bool { return a < b },
+	"<=": func(a, b nano.Ts) bool { return a <= b }}
 
 // Return a predicate for comparing this value to one more typed
 // byte slices by calling the predicate function with a Value.
@@ -204,8 +215,14 @@ func CompareIP(op string, pattern net.IP) (Predicate, error) {
 func CompareFloat64(op string, pattern float64) (Predicate, error) {
 	compare, ok := compareFloat[op]
 	if !ok {
-		return nil, fmt.Errorf("unknown double comparator: %s", op)
+		return nil, fmt.Errorf("unknown float64 comparator: %s", op)
 	}
+	compareTs, ok := compareTs[op]
+	if !ok {
+		return nil, fmt.Errorf("unknown time comparator: %s", op)
+	}
+	patternTs := nano.FloatToTs(pattern)
+	fmt.Println("FLOAT TO", pattern, int64(patternTs))
 	return func(val zng.Value) bool {
 		zv := val.Bytes
 		switch val.Type.ID() {
@@ -240,11 +257,11 @@ func CompareFloat64(op string, pattern float64) (Predicate, error) {
 			if err == nil {
 				return compare(float64(v), pattern)
 			}
-
 		case zng.IdTime:
 			ts, err := zng.DecodeTime(zv)
 			if err == nil {
-				return compare(float64(ts)/1e9, pattern)
+				fmt.Println("COMPARE TS", int64(ts), int64(patternTs))
+				return compareTs(ts, patternTs)
 			}
 		case zng.IdDuration:
 			v, err := zng.DecodeDuration(zv)

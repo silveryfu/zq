@@ -148,10 +148,12 @@ func TimeToTs(t time.Time) Ts {
 	return Ts(t.UnixNano())
 }
 
+//XXX 1/100-microsecond precision
 func FloatToTs(v float64) Ts {
-	sec := math.Round(v)
-	ns := v - sec
-	return Ts(int64(sec)*1_000_000_000 + int64(ns*1e9))
+	sec, ns := math.Modf(v)
+	out := Ts(sec)*1_000_000_000 + Ts(math.Round(ns*1e7)*100)
+	fmt.Println("FLOAT-TO-TS", v, int64(out), sec, ns)
+	return out
 }
 
 func Date(year int, month time.Month, day, hour, min, sec, nsec int) Ts {
