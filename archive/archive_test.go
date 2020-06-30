@@ -146,9 +146,12 @@ func TestImportWhileOpen(t *testing.T) {
 	// Ensure UpdateCheck has incremented.
 	update2, err := ark1.UpdateCheck()
 	require.NoError(t, err)
-	if !assert.Equal(t, 3, update2) {
+	missedUpdate := !assert.Equal(t, 3, update2)
+	forcedTimes := !assert.Equal(t, 0, ark1.mdForcedTimes)
+	if missedUpdate || forcedTimes {
 		if fi, err := os.Stat(ark1.mdPath()); err == nil {
-			fmt.Fprintf(os.Stderr, "now: %v, metadata initial mtime: %v, mtime: %v, mdModTime %v\n", time.Now(), initialMTime, fi.ModTime(), ark1.mdModTime)
+			fmt.Fprintf(os.Stderr, "now: %v, metadata initial mtime: %v, mtime: %v, mdModTime %v mdForcedTimes %v\n",
+				time.Now(), initialMTime, fi.ModTime(), ark1.mdModTime, ark1.mdForcedTimes)
 		}
 		watchMtime(t, ark1.mdPath(), initialMTime)
 	}
@@ -170,7 +173,21 @@ func TestImportWhileOpen(t *testing.T) {
 	ark2, err := OpenArchive(datapath, nil)
 	require.NoError(t, err)
 
+	initialMTime = ark1.mdModTime
 	importTestFile(t, ark2, "testdata/td2.zng")
+
+	// Ensure UpdateCheck has incremented.
+	upcnt, err := ark2.UpdateCheck()
+	require.NoError(t, err)
+	missedUpdate = !assert.Equal(t, 3, upcnt)
+	forcedTimes = !assert.Equal(t, 0, ark2.mdForcedTimes)
+	if missedUpdate || forcedTimes {
+		if fi, err := os.Stat(ark2.mdPath()); err == nil {
+			fmt.Fprintf(os.Stderr, "now: %v, metadata initial mtime: %v, mtime: %v, mdModTime %v mdForcedTimes %v\n",
+				time.Now(), initialMTime, fi.ModTime(), ark2.mdModTime, ark2.mdForcedTimes)
+		}
+		watchMtime(t, ark2.mdPath(), initialMTime)
+	}
 
 	// Verify that the data appears to the earlier opened handle
 	var postSpans []SpanInfo
