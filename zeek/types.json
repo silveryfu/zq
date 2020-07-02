@@ -3299,6 +3299,14 @@
         "type": "bstring"
       },
       {
+        "name": "ja3",
+        "type": "bstring"
+      },
+      {
+        "name": "ja3s",
+        "type": "bstring"
+      },
+      {
         "name": "_write_ts",
         "type": "time"
       }
