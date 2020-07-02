@@ -3172,6 +3172,34 @@
         ]
       },
       {
+        "name": "hasshVersion",
+        "type": "bstring"
+      },
+      {
+        "name": "hassh",
+        "type": "bstring"
+      },
+      {
+        "name": "hasshServer",
+        "type": "bstring"
+      },
+      {
+        "name": "cshka",
+        "type": "bstring"
+      },
+      {
+        "name": "hasshAlgorithms",
+        "type": "bstring"
+      },
+      {
+        "name": "sshka",
+        "type": "bstring"
+      },
+      {
+        "name": "hasshServerAlgorithms",
+        "type": "bstring"
+      },
+      {
         "name": "_write_ts",
         "type": "time"
       }
