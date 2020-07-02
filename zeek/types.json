@@ -224,6 +224,105 @@
         "type": "time"
       }
     ],
+    "conn_long_log": [
+      {
+        "name": "_path",
+        "type": "string"
+      },
+      {
+        "name": "ts",
+        "type": "time"
+      },
+      {
+        "name": "uid",
+        "type": "bstring"
+      },
+      {
+        "name": "id",
+        "type": [
+          {
+            "name": "orig_h",
+            "type": "ip"
+          },
+          {
+            "name": "orig_p",
+            "type": "port"
+          },
+          {
+            "name": "resp_h",
+            "type": "ip"
+          },
+          {
+            "name": "resp_p",
+            "type": "port"
+          }
+        ]
+      },
+      {
+        "name": "proto",
+        "type": "zenum"
+      },
+      {
+        "name": "service",
+        "type": "bstring"
+      },
+      {
+        "name": "duration",
+        "type": "duration"
+      },
+      {
+        "name": "orig_bytes",
+        "type": "uint64"
+      },
+      {
+        "name": "resp_bytes",
+        "type": "uint64"
+      },
+      {
+        "name": "conn_state",
+        "type": "bstring"
+      },
+      {
+        "name": "local_orig",
+        "type": "bool"
+      },
+      {
+        "name": "local_resp",
+        "type": "bool"
+      },
+      {
+        "name": "missed_bytes",
+        "type": "uint64"
+      },
+      {
+        "name": "history",
+        "type": "bstring"
+      },
+      {
+        "name": "orig_pkts",
+        "type": "uint64"
+      },
+      {
+        "name": "orig_ip_bytes",
+        "type": "uint64"
+      },
+      {
+        "name": "resp_pkts",
+        "type": "uint64"
+      },
+      {
+        "name": "resp_ip_bytes",
+        "type": "uint64"
+      },
+      {
+        "name": "tunnel_parents",
+        "type": "set[bstring]"
+      },
+      {
+        "name": "_write_ts",
+        "type": "time"
+      }
+    ],
     "dce_rpc_log": [
       {
         "name": "_path",
@@ -3578,6 +3677,11 @@
       "descriptor": "conn_log",
       "name": "_path",
       "value": "conn"
+    },
+    {
+      "descriptor": "conn_long_log",
+      "name": "_path",
+      "value": "conn_long"
     },
     {
       "descriptor": "dce_rpc_log",
