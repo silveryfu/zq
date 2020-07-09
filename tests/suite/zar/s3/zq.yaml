@@ -1,11 +1,10 @@
 script: |
   source minio.sh
   zar import -s 20KiB -R ./root -data s3://bucket/zartest babble.tzng
+  zar zq -R ./root -o count.zng "count()" _
   echo ===
-  zar ls -R ./root
-  echo ===
-  zar ls -relative -R ./root
-  kill -KILL $pid &> /dev/null
+  zar ls -l -R ./root
+  kill -KILL $miniopid &> /dev/null
 
 inputs:
   - name: babble.tzng
@@ -18,7 +17,6 @@ outputs:
     data: |
       ===
       s3://bucket/zartest/20200422/1587518620.0622373.zng.zar
+      	count.zng
       s3://bucket/zartest/20200421/1587512288.06249439.zng.zar
-      ===
-      20200422/1587518620.0622373.zng.zar
-      20200421/1587512288.06249439.zng.zar
+      	count.zng
