@@ -100,11 +100,12 @@ docker:
 		-t zqd:latest \
 		.
 
+ZQD_LOCAL_HOST := localhost:5000
 docker-push-local: docker
-	docker tag zqd localhost:5000/zqd:latest
-	docker push localhost:5000/zqd:latest
-	docker tag zqd localhost:5000/zqd:$(VERSION)
-	docker push localhost:5000/zqd:$(VERSION)
+	docker tag zqd $(ZQD_LOCAL_HOST)/zqd:latest
+	docker push $(ZQD_LOCAL_HOST)/zqd:latest
+	docker tag zqd $(ZQD_LOCAL_HOST)/zqd:$(VERSION)
+	docker push $(ZQD_LOCAL_HOST)/zqd:$(VERSION)
 
 docker-push-ecr: docker
 	aws ecr get-login-password --region us-east-2 | docker login \
@@ -127,6 +128,12 @@ helm-install:
 	--set image.tag="zqd:$(ECR_VERSION)" \
 	--set useCredSecret=false \
 	--set datauri=$(ZQD_DATA_URI)
+
+helm-install-local:
+	helm install zqd charts/zqd \
+	--set image.repository="$(ZQD_LOCAL_HOST)/" \
+	--set image.tag="zqd:$(VERSION)" \
+	--set useCredSecret=false
 
 create-release-assets:
 	for os in darwin linux windows; do \
